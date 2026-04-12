@@ -205,7 +205,77 @@ class MeteoSwissFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):  # type:i
             self._post_code,
             self._forecast_name,
         )
-        return await self.async_step_user_three()
+        return await self.async_step_locality()
+
+    async def async_step_locality(self, user_input=None):
+        """Handle locality selection for a given 4-digit postal code.
+
+        Fetches all localities that share the postal code and lets the user
+        pick one.
+
+        If the postcode resolves to only one locality the step is skipped
+        automatically.
+        """
+
+        _LOGGER.debug(
+            "step locality: starting with post %s",
+            self._post_code,
+        )
+
+        client = await self.hass.async_add_executor_job(
+            meteoSwissClient,
+            "No display name",
+            self._post_code,
+        )
+
+        localities: dict[str, str] = await self.hass.async_add_executor_job(
+            client.get_localities_for_postcode,
+            self._post_code,
+        )
+
+        # Do not show the extra step if there is only one locality for this postal code
+        if len(localities) == 1:
+            self._post_code = next(iter(localities.values()))
+            _LOGGER.debug(
+                "step locality: single locality %s, skipping", self._post_code
+            )
+            return await self.async_step_user_three()
+
+        def data_schema(default_locality_name):
+            return vol.Schema(
+                {
+                    vol.Required(
+                        CONF_POSTCODE,
+                        default=default_locality_name,
+                    ): vol.In(list(localities)),
+                }
+            )
+
+        errors = {}
+        if user_input is not None:
+            selected_name = user_input[CONF_POSTCODE]
+            if selected_name not in localities:
+                errors[CONF_POSTCODE] = "invalid_postcode"
+
+            if not errors:
+                self._post_code = localities[selected_name]
+                _LOGGER.debug(
+                    "step locality: selected %s -> %s",
+                    selected_name,
+                    self._post_code,
+                )
+                return await self.async_step_user_three()
+
+            schema = data_schema(selected_name)
+        else:
+            schema = data_schema(next(iter(localities)))
+
+        return self.async_show_form(
+            step_id="locality",
+            data_schema=schema,
+            errors=errors,
+            description_placeholders={"postcode": self._post_code},
+        )
 
     async def _get_all_weather_stations_and_closest_one(
         self, client, lat, lon
