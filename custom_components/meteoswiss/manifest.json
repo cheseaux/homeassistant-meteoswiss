@@ -11,7 +11,7 @@
     "issue_tracker": "https://github.com/cheseaux/homeassistant-meteoswiss/issues",
     "quality_scale": "silver",
     "requirements": [
-        "hamsclientfork @ git+https://github.com/cheseaux/hamsclientfork.git@f4d3d3c0562ac05c07564304486d1dc8a4eb6af6",
+        "hamsclientfork @ git+https://github.com/cheseaux/hamsclientfork.git",
         "geopy>=2.0"
     ],
     "version": "1.4.0"
